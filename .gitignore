@@ -162,3 +162,6 @@ ENV/
 /site
 
 # End of https://www.gitignore.io/api/linux,emacs,python
+
+# ignore private files
+*_private.*

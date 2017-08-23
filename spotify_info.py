@@ -10,18 +10,21 @@ Partially stolen from https://stackoverflow.com/questions/33883360/get-spotify-c
 '''
 
 import dbus
-session_bus = dbus.SessionBus()
-spotify_bus = session_bus.get_object("org.mpris.MediaPlayer2.spotify",
-                                     "/org/mpris/MediaPlayer2")
-spotify_properties = dbus.Interface(spotify_bus,
-                                    "org.freedesktop.DBus.Properties")
-metadata = spotify_properties.Get("org.mpris.MediaPlayer2.Player", "Metadata")
-
-
-artist = ""
-for key in metadata['xesam:artist']:
-    if not artist=="":
-        artist=artist+", "
-    artist=artist + key
+try:
+    session_bus = dbus.SessionBus()
+    spotify_bus = session_bus.get_object("org.mpris.MediaPlayer2.spotify",
+                                         "/org/mpris/MediaPlayer2")
+    spotify_properties = dbus.Interface(spotify_bus,
+                                        "org.freedesktop.DBus.Properties")
+    metadata = spotify_properties.Get("org.mpris.MediaPlayer2.Player", "Metadata")
     
-print(metadata['xesam:title']+" - "+artist)
+    
+    artist = ""
+    for key in metadata['xesam:artist']:
+        if not artist=="":
+            artist=artist+", "
+            artist=artist + key
+            
+    print(metadata['xesam:title']+" - "+artist)
+except Exception:
+    print("not playing")
