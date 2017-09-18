@@ -8,34 +8,13 @@ import curses
 from calendar import monthrange
 
 
-def printDays(win, year, month, active, tly=3, tlx=1, normalCP=1):
-  win.bkgd(curses.color_pair(normalCP))
-  
-  startCW=datetime.date(year,month,1).isocalendar()[1]
-  
-  win.addstr(tly,tlx+3,"Mo Di Mi Do Fr Sa So")
-  for day in range(1,monthrange(year, month)[1]):
-    ic=datetime.date(year,month,day).isocalendar()
-    cw=ic[1]
-    wd=ic[2]
-    win.addstr(tly+2+(cw-startCW) * 2,
-               tlx+wd*3,
-               "%2d"%day)
-    
-    win.move(tly,tly)
-    win.refresh()
-
-print("Erstelle die Abrechnung")
-
 monate = ["","Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober","November","Dezember"]
 tage = ["","Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 
-month = raw_input("Welcher Monat?(Zahl; Standard: %d) " % datetime.datetime.now().month) or str(datetime.datetime.now().month)
-month= int(month)
-year = raw_input("Welches Jahr?(Zahl; Standard: %d) " % datetime.datetime.now().year) or datetime.datetime.now().year
+      
+print("Erstelle die Abrechnung")
 
 
-body = "Hallo Herr "+config.name+",\n\nhier meine Abrechnung für "+monate[month]+" %d:\n\n"%(year)
 
 
 stdscr = curses.initscr()
@@ -46,39 +25,140 @@ curses.start_color()
 curses.use_default_colors()
 curses.init_pair(1, curses.COLOR_WHITE, -1)
 curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)
-curses.init_pair(3, curses.COLOR_BLUE, -1)
-curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_BLUE)
+COLORPAIR_SELECTED=2
+curses.init_pair(3, curses.COLOR_YELLOW, -1)
+COLORPAIR_MARKED=3
+curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_YELLOW)
+COLORPAIR_MARKED_SELECTED=4
+curses.init_pair(5, curses.COLOR_BLUE, -1)
+COLORPAIR_CW=3
+curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_BLUE)
+COLORPAIR_CW_INV=4
 
+
+class DaySelector:
+  
+  def __init__(self,month=-1,year=-1):
+    if month==-1:
+      self.month = raw_input("Welcher Monat?(Zahl; Standard: %d) " %
+                             datetime.datetime.now().month) or str(datetime.datetime.now().month)
+      self.month= int(self.month)
+    else:
+      self.month=month
+
+    if year==-1:
+      self.year = raw_input("Welches Jahr?(Zahl; Standard: %d) " %
+                          datetime.datetime.now().year) or datetime.datetime.now().year
+    else:
+      self.year=year
+    self.win_background = curses.newwin(40, 40, 1, 1)
+    self.win_background.bkgd(curses.color_pair(1))
+    self.win_background.box()
+    self.win_background.addstr(1, 1, str(monate[month])+" "+str(year))
+    self.win_background.refresh()
+    self.selectedDay=13
+    
+  def createDays(self, tly=3, tlx=1, normalCP=1):
+    self.win_background.addstr(tly,tlx+5,"Mo  Di  Mi  Do  Fr  Sa  So")
+    startCW=datetime.date(self.year,self.month,1).isocalendar()[1]
+    self.daywins={}
+    self.dayMarked={}
+    for day in range(1,monthrange(self.year, self.month)[1]+1):
+      ic=datetime.date(self.year,self.month,day).isocalendar()
+      wd=ic[2]
+      cw=ic[1]
+      mw=int(math.floor((day+(7-wd))/7))
+      self.daywins[day]=self.win_background.derwin(3,4,
+                                                   4+(mw) * 3,
+                                                   1+wd*4)
+      self.daywins[day].bkgd(curses.color_pair(1))
+      self.daywins[day].addstr(1,1,"%2d"%day)
+      self.daywins[day].box()
+      self.dayMarked[day]=False
+      self.refreshDays()
+    self.win_background.addstr(tly+3*5+5,1,"Bitte die abzurechnenden Tage waehlen")
+    self.win_background.addstr(tly+3*5+6,1,"Pfeiltasten zur Navigation,")
+    self.win_background.addstr(tly+3*5+7,1,"SPACE um die Markierung umzuschalten")
+    self.win_background.addstr(tly+3*5+8,1,"q zum beenden")
+    self.win_background.refresh()
+    
+  def refreshDays(self):
+    for day in self.daywins:
+      if day==self.selectedDay:
+        if self.dayMarked[day]:
+          self.daywins[day].bkgd(curses.color_pair(COLORPAIR_MARKED_SELECTED))
+        else:
+          self.daywins[day].bkgd(curses.color_pair(COLORPAIR_SELECTED))
+      else:
+        if self.dayMarked[day]:
+          self.daywins[day].bkgd(curses.color_pair(COLORPAIR_MARKED))
+        else:
+          self.daywins[day].bkgd(curses.color_pair(1))
+      self.daywins[day].refresh()
+
+
+  def selectDays(self):
+    self.createDays()
+    
+      
+    key_pressed = -1
+    while key_pressed != ord('q'):
+      key_pressed = stdscr.getch()
+      
+      if key_pressed == curses.KEY_UP:
+        self.selectedDay=self.selectedDay-7
+        if self.selectedDay<1:
+          self.selectedDay=self.selectedDay+35
+      if key_pressed == curses.KEY_DOWN:
+        self.selectedDay=(self.selectedDay+7)
+        if self.selectedDay>monthrange(self.year, self.month)[1]:
+          self.selectedDay=self.selectedDay%7
+          
+      if key_pressed == curses.KEY_RIGHT:
+        self.selectedDay=(self.selectedDay+1)
+        if self.selectedDay>monthrange(self.year, self.month)[1]:
+          self.selectedDay=self.selectedDay-monthrange(self.year, self.month)[1]
+            
+      if key_pressed == curses.KEY_LEFT:
+        self.selectedDay=self.selectedDay-1
+        if self.selectedDay<1:
+          self.selectedDay=self.selectedDay+monthrange(self.year, self.month)[1]
+              
+      if key_pressed == ord(' '):
+        self.dayMarked[self.selectedDay]=not self.dayMarked[self.selectedDay]
+          
+      if key_pressed == curses.KEY_RESIZE:
+        stdscr.erase()
+      self.refreshDays()
+
+    # Ende
+    curses.nocbreak()
+    stdscr.keypad(0)
+    curses.echo()
+    curses.endwin()
+
+    self.selectedDays=[]
+    for day in self.dayMarked:
+      if self.dayMarked[day]:
+        self.selectedDays.append(day)
+    return self.selectedDays
+    
 stdscr.bkgd(curses.color_pair(1))
 stdscr.refresh()
 
 
-win = curses.newwin(15, 25, 1, 1,)
-win.bkgd(curses.color_pair(1))
-win.box()
-win.addstr(1, 1, str(monate[month])+" "+str(year))
+ds=DaySelector(8,2017)
+selectedDays=ds.selectDays()
 
-win.refresh()
+body = "Hallo Herr "+config.name+",\n\nhier meine Abrechnung für "+monate[ds.month]+" %d:\n\n"%(ds.year)
 
-printDays(win,year,month,-1)
 
-day=1
-dayInfo = datetime.date(year,month,day).isocalendar()
 
-# Warten auf Tastendruck
-c = stdscr.getch()
-
-# Ende
-curses.nocbreak()
-stdscr.keypad(0)
-curses.echo()
-curses.endwin()
 
 moneyTotal = 0
 lastKW = 0
-while not(userInput == ""):
-  day = int(float(userInput))
-  dayInfo = datetime.date(year,month,day).isocalendar()
+for day in selectedDays:
+  dayInfo = datetime.date(ds.year,ds.month,day).isocalendar()
   startTime=datetime.time(0, 0) 
   endTime=datetime.time(0, 0)
   if(dayInfo[2]==1):
@@ -98,13 +178,10 @@ while not(userInput == ""):
   if(lastKW < dayInfo[1]):
     body = body + "KW %02d:\n" % dayInfo[1]
     lastKW = dayInfo[1]
-  body =  body + tage[dayInfo[2]]+",\t%02d.%02d.%d\t%02d:%02d - %02d:%02d\t= %1.2f€\n"%(day,month,year,startTime.hour,startTime.minute,endTime.hour,endTime.minute, float(money))
-
-  print(money)
-  userInput = raw_input("Tag (oder leer zum beenden): ")
+  body =  body + tage[dayInfo[2]]+",\t%02d.%02d.%d\t%02d:%02d - %02d:%02d\t= %1.2f€\n"%(day,ds.month,ds.year,startTime.hour,startTime.minute,endTime.hour,endTime.minute, float(money))
 
 body = body + "------------------------------------------------\n"
 body = body + " = %1.2f\n" % moneyTotal
 body = body+"\nMit freundlichen Grüßen,\nAdrian Hinrichs"
 print(body)
-call(["thunderbird","-compose","""to='"""+config.email+"""',subject='Abrechnung ',body='""" + body + "'"""])
+call(["thunderbird","-compose","""to='"""+config.email+"""',format=2,subject='Abrechnung Trainerassistenz """+monat[ds.month]+"""',body='""" + body + "'"""])
