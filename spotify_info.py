@@ -26,5 +26,6 @@ try:
             artist=artist + key
             
     print(metadata['xesam:title']+" - "+artist)
-except Exception:
+except Exception as e:
     print("not playing")
+    print(e)
