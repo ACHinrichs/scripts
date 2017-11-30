@@ -35,7 +35,35 @@ COLORPAIR_CW=3
 curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_BLUE)
 COLORPAIR_CW_INV=4
 
+class MonthSelector:
+  def __init__(self):
+    self.month=datetime.datetime.now().month
+    self.win_background = curses.newwin(40, 40, 1, 1)
+    self.win_background.bkgd(curses.color_pair(1))
+    self.win_background.box()
+    self.win_background.addstr(1, 1, "Abrechnungsscript")
+    self.drawUI()
 
+  def drawUI(self, tly=3, tlx=1, normalCP=1):
+    self.win_background.addstr(tly,tlx,"Monat im Duodezimalsystem Eingeben:")
+    self.win_background.addstr(tly+1,tlx,"  - a=10, b=11, c=12")
+    self.win_background.addstr(tly+2,tlx,"  - SPACE für auswahl")
+    self.win_background.addstr(tly+4,tlx,"Monat:")
+    self.win_background.addstr(tly+4,tlx+8,str(self.month)+" ")
+    self.win_background.refresh()
+
+  def select(self):    
+    key_pressed = -1
+    while key_pressed != ord(' '):
+      key_pressed = stdscr.getch()
+      if ord('a')<= key_pressed <= ord('c'):
+        self.month=key_pressed-ord('a')+10
+      if ord('1')<= key_pressed <= ord('9'):
+        self.month=key_pressed-ord('1')+1
+      self.drawUI()
+    return self.month
+
+  
 class DaySelector:
   
   def __init__(self,month=-1,year=-1):
@@ -98,9 +126,7 @@ class DaySelector:
 
 
   def selectDays(self):
-    self.createDays()
-    
-      
+    self.createDays()      
     key_pressed = -1
     while key_pressed != ord('q'):
       key_pressed = stdscr.getch()
@@ -146,11 +172,11 @@ class DaySelector:
 stdscr.bkgd(curses.color_pair(1))
 stdscr.refresh()
 
-
-ds=DaySelector(8,2017)
+ms=MonthSelector()
+ds=DaySelector(ms.select(),2017)
 selectedDays=ds.selectDays()
 
-body = "Hallo Herr "+config.name+",\n\nhier meine Abrechnung für "+monate[ds.month]+" %d:\n\n"%(ds.year)
+body = "Hallo "+config.name+",\n\nhier meine Abrechnung für "+monate[ds.month]+" %d:\n\n"%(ds.year)
 
 
 
@@ -180,8 +206,8 @@ for day in selectedDays:
     lastKW = dayInfo[1]
   body =  body + tage[dayInfo[2]]+",\t%02d.%02d.%d\t%02d:%02d - %02d:%02d\t= %1.2f€\n"%(day,ds.month,ds.year,startTime.hour,startTime.minute,endTime.hour,endTime.minute, float(money))
 
-body = body + "------------------------------------------------\n"
-body = body + " = %1.2f\n" % moneyTotal
+body = body + "--------------------------------------------------------\n"
+body = body + "\t\t\t\t\t\t=%1.2f€\n" % moneyTotal
 body = body+"\nMit freundlichen Grüßen,\nAdrian Hinrichs"
 print(body)
-call(["thunderbird","-compose","""to='"""+config.email+"""',format=2,subject='Abrechnung Trainerassistenz """+monat[ds.month]+"""',body='""" + body + "'"""])
+call(["thunderbird","-compose","""to='"""+config.email+"""',format=2,subject='Abrechnung Trainerassistenz """+monate[ds.month]+"""',body='""" + body + "'"""])
