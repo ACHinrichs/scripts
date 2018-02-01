@@ -38,6 +38,7 @@ COLORPAIR_CW_INV=4
 class MonthSelector:
   def __init__(self):
     self.month=datetime.datetime.now().month
+    self.year=datetime.datetime.now().year
     self.win_background = curses.newwin(40, 40, 1, 1)
     self.win_background.bkgd(curses.color_pair(1))
     self.win_background.box()
@@ -48,17 +49,22 @@ class MonthSelector:
     self.win_background.addstr(tly,tlx,"Monat im Duodezimalsystem Eingeben:")
     self.win_background.addstr(tly+1,tlx,"  - a=10, b=11, c=12")
     self.win_background.addstr(tly+2,tlx,"  - SPACE für auswahl")
-    self.win_background.addstr(tly+4,tlx,"Monat:")
-    self.win_background.addstr(tly+4,tlx+8,str(self.month)+" ")
+    self.win_background.addstr(tly+3,tlx,"  - MINUS für das Vorjahr")
+    self.win_background.addstr(tly+3,tlx,"  - PLUS für das nächste Jahr")
+    self.win_background.addstr(tly+5,tlx+8,str(self.month)+" "+str(self.year))
     self.win_background.refresh()
 
   def select(self):    
     key_pressed = -1
     while key_pressed != ord(' '):
       key_pressed = stdscr.getch()
-      if ord('a')<= key_pressed <= ord('c'):
+      if ord('-')==key_pressed:
+        self.year = self.year - 1
+      elif ord('+')==key_pressed:
+        self.year = self.year + 1
+      elif ord('a')<= key_pressed <= ord('c'):
         self.month=key_pressed-ord('a')+10
-      if ord('1')<= key_pressed <= ord('9'):
+      elif ord('1')<= key_pressed <= ord('9'):
         self.month=key_pressed-ord('1')+1
       self.drawUI()
     return self.month
@@ -82,7 +88,7 @@ class DaySelector:
     self.win_background = curses.newwin(40, 40, 1, 1)
     self.win_background.bkgd(curses.color_pair(1))
     self.win_background.box()
-    self.win_background.addstr(1, 1, str(monate[month])+" "+str(year))
+    self.win_background.addstr(1, 1, str(monate[self.month])+" "+str(self.year))
     self.win_background.refresh()
     self.selectedDay=13
     
@@ -173,7 +179,7 @@ stdscr.bkgd(curses.color_pair(1))
 stdscr.refresh()
 
 ms=MonthSelector()
-ds=DaySelector(ms.select(),2017)
+ds=DaySelector(ms.select(),ms.year)
 selectedDays=ds.selectDays()
 
 body = "Hallo "+config.name+",\n\nhier meine Abrechnung für "+monate[ds.month]+" %d:\n\n"%(ds.year)
