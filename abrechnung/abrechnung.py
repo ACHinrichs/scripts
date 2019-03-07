@@ -1,7 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from subprocess import call
 import datetime
+import argparse
+import npyscreen
+
+
+from subprocess import call
 import math
 import config_private as config
 import curses
@@ -9,211 +13,126 @@ from calendar import monthrange
 
 
 monate = ["","Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober","November","Dezember"]
-tage = ["","Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+tage = ["",
+        "Montag",
+        "Dienstag",
+        "Mittwoch",
+        "Donnerstag",
+        "Freitag",
+        "Samstag",
+        "Sonntag"]
 
-      
-print("Erstelle die Abrechnung")
+now = datetime.datetime.now()
+
+parser = argparse.ArgumentParser(description='Generiert die Abrechnung für erteilte Trainings')
+parser.add_argument('-m', '--month',
+                    type=int,
+                    help="Der Monat für den Abrechnungszeitraum",
+                    required=False,
+                    default=now.month)
+parser.add_argument('-y','--year',
+                    type=int,
+                    help="Das Jahr des Abrechnungszeitraumes",
+                    required=False,
+                    default=now.year)
+
+BEGRUESSUNG = "Hallo Volker,\n"
+SCHLUSSFORMEL = "Alles Gute,\nAdrian"
+GEHALT = 12
+class TrainingsSlot:
+  def __init__(self,
+               descr,
+               duration,
+               default=False):
+    """
+    Initialises the Training
+
+    Arguments:
+    wd      -- The weekday of the Trianing (Monday = 1, Sunday=7)
+    descr   -- Description of the Training (e.g. Start/End-Time)
+    time    -- The duration in hours
+    default -- if it shall be selected by default (default is fase)
+    """
+    self.description = descr
+    self.duration=duration
+    self.default=default
+
+class Training:
+  def __init__(self,
+               slot,
+               day,
+               month,
+               year):
+    self.slot=slot
+    self.day=day
+    self.month=month
+    self.year=year
+
+  def lohn(self):
+    return self.slot.duration * GEHALT
+
+  def __str__(self):
+    ic=datetime.date(self.year,self.month,self.day).isocalendar()
+    wd=ic[2]
+    cw=ic[1]
+    return f"KW {cw} {tage[wd]},\t{self.day}.{self.month}\t{self.slot.description}\t={(self.lohn()):.2f}€"
+
+wochen_trainings = [{TrainingsSlot("17:00 - 18:30 Uhr", 1.5)}, # Montag
+                    {}, # Dienstag
+                    {TrainingsSlot("16:30 - 17:45 Uhr", 1.25,True), #Mittwoch
+                     TrainingsSlot("17:45 - 19:15 Uhr", 1.5 ,True)},
+                    {TrainingsSlot("17:00 - 18:15 Uhr", 1.25)}, # Donnerstag
+                    {TrainingsSlot("17:00 - 18:30 Uhr", 1.5)}, # Freitag
+                    {},{}] # WE
 
 
 
-
-stdscr = curses.initscr()
-curses.noecho()
-curses.cbreak()
-stdscr.keypad(1)
-curses.start_color()
-curses.use_default_colors()
-curses.init_pair(1, curses.COLOR_WHITE, -1)
-curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)
-COLORPAIR_SELECTED=2
-curses.init_pair(3, curses.COLOR_YELLOW, -1)
-COLORPAIR_MARKED=3
-curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_YELLOW)
-COLORPAIR_MARKED_SELECTED=4
-curses.init_pair(5, curses.COLOR_BLUE, -1)
-COLORPAIR_CW=3
-curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_BLUE)
-COLORPAIR_CW_INV=4
-
-class MonthSelector:
-  def __init__(self):
-    self.month=datetime.datetime.now().month
-    self.year=datetime.datetime.now().year
-    self.win_background = curses.newwin(40, 40, 1, 1)
-    self.win_background.bkgd(curses.color_pair(1))
-    self.win_background.box()
-    self.win_background.addstr(1, 1, "Abrechnungsscript")
-    self.drawUI()
-
-  def drawUI(self, tly=3, tlx=1, normalCP=1):
-    self.win_background.addstr(tly,tlx,"Monat im Duodezimalsystem Eingeben:")
-    self.win_background.addstr(tly+1,tlx,"  - a=10, b=11, c=12")
-    self.win_background.addstr(tly+2,tlx,"  - SPACE für auswahl")
-    self.win_background.addstr(tly+3,tlx,"  - MINUS für das Vorjahr")
-    self.win_background.addstr(tly+3,tlx,"  - PLUS für das nächste Jahr")
-    self.win_background.addstr(tly+5,tlx+8,str(self.month)+" "+str(self.year))
-    self.win_background.refresh()
-
-  def select(self):    
-    key_pressed = -1
-    while key_pressed != ord(' '):
-      key_pressed = stdscr.getch()
-      if ord('-')==key_pressed:
-        self.year = self.year - 1
-      elif ord('+')==key_pressed:
-        self.year = self.year + 1
-      elif ord('a')<= key_pressed <= ord('c'):
-        self.month=key_pressed-ord('a')+10
-      elif ord('1')<= key_pressed <= ord('9'):
-        self.month=key_pressed-ord('1')+1
-      self.drawUI()
-    return self.month
-
+class AbrechnerApp(npyscreen.NPSApp):
+  def __init__(self, month, year):
+    self.month=month
+    self.year=year
+    pass
   
-class DaySelector:
-  
-  def __init__(self,month=-1,year=-1):
-    if month==-1:
-      self.month = raw_input("Welcher Monat?(Zahl; Standard: %d) " %
-                             datetime.datetime.now().month) or str(datetime.datetime.now().month)
-      self.month= int(self.month)
-    else:
-      self.month=month
+  def main(self):
 
-    if year==-1:
-      self.year = raw_input("Welches Jahr?(Zahl; Standard: %d) " %
-                          datetime.datetime.now().year) or datetime.datetime.now().year
-    else:
-      self.year=year
-    self.win_background = curses.newwin(40, 40, 1, 1)
-    self.win_background.bkgd(curses.color_pair(1))
-    self.win_background.box()
-    self.win_background.addstr(1, 1, str(monate[self.month])+" "+str(self.year))
-    self.win_background.refresh()
-    self.selectedDay=13
-    
-  def createDays(self, tly=3, tlx=1, normalCP=1):
-    self.win_background.addstr(tly,tlx+5,"Mo  Di  Mi  Do  Fr  Sa  So")
-    startCW=datetime.date(self.year,self.month,1).isocalendar()[1]
-    self.daywins={}
-    self.dayMarked={}
+    trainings = []
+    trainings_sel = []
+    training_num = 0
     for day in range(1,monthrange(self.year, self.month)[1]+1):
       ic=datetime.date(self.year,self.month,day).isocalendar()
       wd=ic[2]
       cw=ic[1]
-      mw=int(math.floor((day+(7-wd))/7))
-      self.daywins[day]=self.win_background.derwin(3,4,
-                                                   4+(mw) * 3,
-                                                   1+wd*4)
-      self.daywins[day].bkgd(curses.color_pair(1))
-      self.daywins[day].addstr(1,1,"%2d"%day)
-      self.daywins[day].box()
-      self.dayMarked[day]=False
-      self.refreshDays()
-    self.win_background.addstr(tly+3*5+5,1,"Bitte die abzurechnenden Tage waehlen")
-    self.win_background.addstr(tly+3*5+6,1,"Pfeiltasten zur Navigation,")
-    self.win_background.addstr(tly+3*5+7,1,"SPACE um die Markierung umzuschalten")
-    self.win_background.addstr(tly+3*5+8,1,"q zum beenden")
-    self.win_background.refresh()
-    
-  def refreshDays(self):
-    for day in self.daywins:
-      if day==self.selectedDay:
-        if self.dayMarked[day]:
-          self.daywins[day].bkgd(curses.color_pair(COLORPAIR_MARKED_SELECTED))
-        else:
-          self.daywins[day].bkgd(curses.color_pair(COLORPAIR_SELECTED))
-      else:
-        if self.dayMarked[day]:
-          self.daywins[day].bkgd(curses.color_pair(COLORPAIR_MARKED))
-        else:
-          self.daywins[day].bkgd(curses.color_pair(1))
-      self.daywins[day].refresh()
+      for slot in wochen_trainings[wd-1]:
+        training_num = training_num+1
+        trainings.append(Training(slot,day,self.month,self.year))
+        if slot.default:
+          trainings_sel.append(training_num-1)
 
-
-  def selectDays(self):
-    self.createDays()      
-    key_pressed = -1
-    while key_pressed != ord('q'):
-      key_pressed = stdscr.getch()
+    F  = npyscreen.Form(name = f"Abrechnung {monate[args.month]} {args.year}",)
+    t  = F.add(npyscreen.TitleText, name = "Bitte wählen:",)   
+    ms2= F.add(npyscreen.MultiSelect, value = trainings_sel,
+               values = trainings, scroll_exit=True)
+    F.edit()
+    self.result=sorted([ms2.values[i] for i in ms2.value], key=lambda t: t.day)
       
-      if key_pressed == curses.KEY_UP:
-        self.selectedDay=self.selectedDay-7
-        if self.selectedDay<1:
-          self.selectedDay=self.selectedDay+35
-      if key_pressed == curses.KEY_DOWN:
-        self.selectedDay=(self.selectedDay+7)
-        if self.selectedDay>monthrange(self.year, self.month)[1]:
-          self.selectedDay=self.selectedDay%7
-          
-      if key_pressed == curses.KEY_RIGHT:
-        self.selectedDay=(self.selectedDay+1)
-        if self.selectedDay>monthrange(self.year, self.month)[1]:
-          self.selectedDay=self.selectedDay-monthrange(self.year, self.month)[1]
-            
-      if key_pressed == curses.KEY_LEFT:
-        self.selectedDay=self.selectedDay-1
-        if self.selectedDay<1:
-          self.selectedDay=self.selectedDay+monthrange(self.year, self.month)[1]
-              
-      if key_pressed == ord(' '):
-        self.dayMarked[self.selectedDay]=not self.dayMarked[self.selectedDay]
-          
-      if key_pressed == curses.KEY_RESIZE:
-        stdscr.erase()
-      self.refreshDays()
 
-    # Ende
-    curses.nocbreak()
-    stdscr.keypad(0)
-    curses.echo()
-    curses.endwin()
+if __name__ == "__main__":
+  args=parser.parse_args()
+  print(args.month)
+  print(f"Erstelle Abrechnung für {monate[args.month]} {args.year}")
+  App = AbrechnerApp(args.month, args.year)
+  App.run()
+  print(App.result)
 
-    self.selectedDays=[]
-    for day in self.dayMarked:
-      if self.dayMarked[day]:
-        self.selectedDays.append(day)
-    return self.selectedDays
-    
-stdscr.bkgd(curses.color_pair(1))
-stdscr.refresh()
-
-ms=MonthSelector()
-ds=DaySelector(ms.select(),ms.year)
-selectedDays=ds.selectDays()
-
-body = "Hallo "+config.name+",\n\nhier meine Abrechnung für "+monate[ds.month]+" %d:\n\n"%(ds.year)
-
-
-
-
-moneyTotal = 0
-lastKW = 0
-for day in selectedDays:
-  dayInfo = datetime.date(ds.year,ds.month,day).isocalendar()
-  startTime=datetime.time(0, 0) 
-  endTime=datetime.time(0, 0)
-  if(dayInfo[2]==1):
-    startTime=datetime.time(17, 00) 
-    endTime=datetime.time(18, 30)
-  if(dayInfo[2]==3):
-    startTime=datetime.time(16, 30) 
-    endTime=datetime.time(17, 45)
-  if(dayInfo[2]==5):
-    startTime=datetime.time(17, 00) 
-    endTime=datetime.time(18, 30)
-  deltaMinute = (endTime.minute-startTime.minute)
-  deltaHour = (endTime.hour-startTime.hour)
-  money = (deltaHour+deltaMinute/60.0)*6
-  moneyTotal = moneyTotal + money
-
-  if(lastKW < dayInfo[1]):
-    body = body + "KW %02d:\n" % dayInfo[1]
-    lastKW = dayInfo[1]
-  body =  body + tage[dayInfo[2]]+",\t%02d.%02d.%d\t%02d:%02d - %02d:%02d\t= %1.2f€\n"%(day,ds.month,ds.year,startTime.hour,startTime.minute,endTime.hour,endTime.minute, float(money))
-
-body = body + "--------------------------------------------------------\n"
-body = body + "\t\t\t\t\t\t=%1.2f€\n" % moneyTotal
-body = body+"\nMit freundlichen Grüßen,\nAdrian Hinrichs"
-print(body)
-call(["thunderbird","-compose","""to='"""+config.email+"""',format=2,subject='Abrechnung Trainerassistenz """+monate[ds.month]+"""',body='""" + body + "'"""])
+  print("====== ABRECHNUNG ======")
+  lohn_ges = 0
+  body = BEGRUESSUNG
+  body = body + "\nhier meine Abrechnung für "+monate[args.month]+" %d:\n\n"%(args.year)
+  for training in App.result:
+    body = body + str(training) + "\n"
+    lohn_ges=lohn_ges + (training.lohn())
+  body = body + "--------------------------------------------------------\n"
+  body = body + f"\t\t\t\t\t\t={(lohn_ges):.2f}€\n"
+  body = body + SCHLUSSFORMEL
+  print(body)
+  call(["thunderbird","-compose","""format=2,subject='Abrechnung Training """+monate[args.month]+"""',body='""" + body + "'"""])
