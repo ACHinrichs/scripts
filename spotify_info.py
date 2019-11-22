@@ -8,8 +8,10 @@ WORKS ON LINUX ONLY
 
 Partially stolen from https://stackoverflow.com/questions/33883360/get-spotify-currently-playing-track
 '''
-
 import dbus
+
+MAX_LEN = 32
+MAX_SONG_LEN = 22
 try:
     session_bus = dbus.SessionBus()
     spotify_bus = session_bus.get_object("org.mpris.MediaPlayer2.spotify",
@@ -18,14 +20,21 @@ try:
                                         "org.freedesktop.DBus.Properties")
     metadata = spotify_properties.Get("org.mpris.MediaPlayer2.Player", "Metadata")
     
-    
+    #print(metadata)
     artist = ""
     for key in metadata['xesam:artist']:
         if not artist=="":
             artist=artist+", "
-            artist=artist + key
-            
-    print(metadata['xesam:title']+" - "+artist)
+        artist=artist + key
+
+    title = str(metadata['xesam:title']).partition(" - ")[0]
+    if len(title + artist) + 3 > MAX_LEN:
+        if len(title) > MAX_SONG_LEN:
+           title = title[0:(MAX_SONG_LEN - 1)]+"…"
+    output = title +" - "+artist
+    if len(output) > MAX_LEN:
+        output = output[0:(MAX_LEN-1)]+"…"
+    print(output)
 except Exception as e:
     print("not playing")
     print(e)
