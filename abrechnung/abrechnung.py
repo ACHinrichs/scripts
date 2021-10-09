@@ -36,7 +36,7 @@ parser.add_argument('-y','--year',
                     required=False,
                     default=now.year)
 
-BEGRUESSUNG = "Hallo Volker,\n"
+BEGRUESSUNG = f"Hallo {config.name},\n"
 SCHLUSSFORMEL = "Alles Gute,\nAdrian"
 GEHALT = 12
 class TrainingsSlot:
@@ -77,12 +77,20 @@ class Training:
     cw=ic[1]
     return f"KW {cw} {tage[wd]},\t{self.day}.{self.month}\t{self.slot.description}\t={(self.lohn()):.2f}€"
 
-wochen_trainings = [{TrainingsSlot("17:00 - 18:30 Uhr", 1.5)}, # Montag
+wochen_trainings = [{TrainingsSlot("17:00 - 18:30 Uhr", 1.5, True), # Montag
+                     TrainingsSlot("18:30 - 20:00 Uhr", 1.5), # Montag
+                     #TrainingsSlot("20:00 - 21:00 Uhr (Online)", 1)
+                     },
                     {}, # Dienstag
-                    {TrainingsSlot("16:30 - 17:45 Uhr", 1.25,True), #Mittwoch
-                     TrainingsSlot("17:45 - 19:15 Uhr", 1.5 ,True)},
+                    {TrainingsSlot("16:30 - 17:45 Uhr", 1.25, True), #Mittwoch
+                     TrainingsSlot("17:45 - 19:15 Uhr", 1.5, True ),
+                     #TrainingsSlot("18:00 - 19:00 Uhr (Online)",1)
+                     },
                     {TrainingsSlot("17:00 - 18:15 Uhr", 1.25)}, # Donnerstag
-                    {TrainingsSlot("17:00 - 18:30 Uhr", 1.5)}, # Freitag
+                    {TrainingsSlot("17:00 - 18:30 Uhr", 1.5),
+                     TrainingsSlot("18:30 - 19:30 Uhr", 1, True), # 
+                     #TrainingsSlot("19:00 - 20:00 Uhr", 1)
+                     }, #Freitag
                     {},{}] # WE
 
 
@@ -135,4 +143,4 @@ if __name__ == "__main__":
   body = body + f"\t\t\t\t\t\t={(lohn_ges):.2f}€\n"
   body = body + SCHLUSSFORMEL
   print(body)
-  call(["thunderbird","-compose","""format=2,subject='Abrechnung Training """+monate[args.month]+"""',body='""" + body + "'"""])
+  call(["thunderbird","-compose",f"""format=2,to={config.email},subject='Abrechnung Training """+monate[args.month]+"""',body='""" + body + "'"""])
